@@ -40,11 +40,12 @@ class UserController extends Controller
         $valid = Validator::make($request->all(), [
             'email' => 'required|email',
             'password' =>  'required',
-            'first_name' =>  'required',
-            'last_name' =>  'required',
-            'national_id' =>  'required|min:9',
-            'phone_number' =>  'required|min:10|max:10',
+            'national_id' =>  'required',
+            // 'first_name' =>  'required',
+            // 'last_name' =>  'required',
+            // 'phone_number' =>  'required|min:10|max:10',
         ]);
+        info($request->all());
         $user = User::where('email', $request->email)->first();
         if (isset($user)) {
             return response()->json(['status_code' => 400, 'message' => 'this email already in use.'], 200);
@@ -53,17 +54,20 @@ class UserController extends Controller
             return response()->json(['status_code' => 400, 'message' => 'Bad Request'], 200);
         $user = User::create([
             'email' => $request->email,
+            'password' => Hash::make($request->password),
             'first_name' => $request->first_name,
             'last_name' => $request->last_name,
-            'password' => Hash::make($request->password),
             'phone_number' => $request->phone_number,
             'national_id' => $request->national_id,
             'type' => 'customer',
         ]);
         if (isset($user)) {
+            $tokenResult = $user->createToken('authToken')->plainTextToken;
             return response()->json([
                 'code' => 200,
-                'message' => "user created successfully"
+                'message' => "user created successfully",
+                "token" => $tokenResult,
+                'type' => 'customer'
             ], 200);
         } else {
             return response()->json([

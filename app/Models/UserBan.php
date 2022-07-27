@@ -8,4 +8,5 @@ use Illuminate\Database\Eloquent\Model;
 class UserBan extends Model
 {
     use HasFactory;
+    protected $fillable = ['user_id','cause'];
 }

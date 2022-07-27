@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Models\Bicycle;
 use App\Models\BicycleStyle;
+use App\Models\CurrentUser;
 use App\Models\Esp32Chip;
 use App\Models\Stand;
 use App\Models\User;
 use App\Models\UserBan;
+use App\Models\UserHistory;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
@@ -27,17 +29,20 @@ class ManagerController extends Controller
             if (isset($style))
                 return response()->json([
                     'code' => 200,
-                    'message' => "bicycle style created sucesssfully."
+                    'message' => "bicycle style created sucesssfully.",
+                    'style' => $style
                 ], 200);
             else
                 return response()->json([
                     'code' => 300,
-                    'message' => "bicycle style can't be created."
+                    'message' => "bicycle style can't be created.",
+                    'style' => null
                 ], 200);
         } else {
             return response()->json([
                 'code' => 403,
-                'message' => "you don't have access to this route."
+                'message' => "you don't have access to this route.",
+                'style' => null
             ], 200);
         }
     }
@@ -77,35 +82,41 @@ class ManagerController extends Controller
 
         $user = Auth::user();
         if ($user->type == 'manager') {
-            /* request [name , img_url , lat , long , price_per_time,
-                                     price_per_distnace , style_id , stand_id , is_sport,
-                                     esp32 email , esp32 password ,esp_ip ]*/
+            /* request [ file(image) , price_per_time, price_per_distance ,
+                 style_id , stand_id , is_sport,esp_ip ]*/
+
             $esp32 = User::create([
-                'email' => $request->email,
-                'password' => Hash::make($request->password),
+                'email' => '',
+                'password' => Hash::make(12345678),
                 'type' => 'esp32',
                 'ip' => $request->esp_ip
             ]);
+            $generatedEmail = "esp32.$esp32->id@bi.com";
+            $esp32->email = $generatedEmail;
+            $esp32->save();
+            $stand = Stand::find($request->stand_id);
+            $style = BicycleStyle::find($request->style_id);
+            $name = "bicycle$style->size-$style->color";
             $bicycle = Bicycle::create([
-                'name' => $request->name,
-                'lat' => $request->lat,
-                'long' => $request->long,
+                'name' => $name,
+                'lat' => $stand->lat,
+                'long' => $stand->long,
                 'price_per_time' => $request->price_per_time,
                 'price_per_distance' => $request->price_per_distance,
                 'style_id' => $request->style_id,
                 'stand_id' => $request->stand_id,
                 'esp32_id' => $esp32->id,
-                'is_sport' => $request->is_sport,
+                'is_sport' => false,
                 'is_available' => true,
             ]);
 
             if ($request->hasFile('image')) {
-                $image = $request->image;
+                $image = $request->file("image");
                 $file_extention = $image->getClientOriginalExtension();
                 $file_name = time() . '.' . $file_extention;  // 546165165.jpg
-                $path = 'images';
-                $image->move($path, $file_name);
-                $bicycle->img_url = $path . '/' . $file_name;
+                $path = '/public/images';
+                $image->storeAs($path, $file_name);
+                $bicycle->img_url =  '/storage/images/' . $file_name;
                 $bicycle->save();
             }
             if (isset($bicycle) && isset($esp32))
@@ -130,16 +141,17 @@ class ManagerController extends Controller
     {
         $manager = Auth::user();
         if ($manager->type == 'manager') {
-            // request [ user_id , cause ]
+            // request [ id , cause ]
+
             $user = User::where('id', $request->id)->first();
-            if (isset($user))
+            if (!isset($user))
                 return response()->json([
                     'code' => 300,
                     'message' => "user not found."
                 ], 200);
 
             $ban = UserBan::create([
-                'user_id' => $user->user_id,
+                'user_id' => $user->id,
                 'cause' => $request->cause,
             ]);
             if (isset($ban))
@@ -202,10 +214,7 @@ class ManagerController extends Controller
     }
     public function getAllBicycle()
     {
-        return response()->json([
-            'code' => 200,
-            'bis' => Bicycle::with('style')->get()
-        ], 200);
+        return response()->json(Bicycle::with('style', 'esp32')->get(), 200);
     }
     public function getAllStands()
     {
@@ -230,5 +239,66 @@ class ManagerController extends Controller
             'code' => 200,
             'bicycles' => $bis
         ], 200);
+    }
+
+    public function recentEvents()
+    {
+        $user = Auth::user();
+        if ($user->type == 'manager') {
+            $current = CurrentUser::with('user', 'bicycle.style', 'bicycle.esp32', 'bicycle.stand')->get()
+             ->map->format();
+            $history = UserHistory::with([
+                'user', 'bicycle.style', 'bicycle.esp32',
+                'bicycle.stand',
+                'old_stand', 'last_stand'
+            ])->get()->map->format();
+            return response()->json([
+                'current' => $current,
+                'history' => $history
+            ], 200);
+        } else {
+            return response()->json([
+                'current' => [],
+                'history' => []
+            ], 200);
+        }
+    }
+    public function getUserHistory(Request $request)
+    {
+
+        $user = Auth::user();
+        if ($user->type == 'manager') {
+            $history = UserHistory::where('user_id', $request->userId)->with([
+                'user', 'bicycle.style', 'bicycle.esp32',
+                'bicycle.stand',
+                'old_stand', 'last_stand'
+            ])->get()->map->format();
+            return response()->json($history, 200);
+        } else return response()->json([], 403);
+    }
+    public function getStyles()
+    {
+        $user = Auth::user();
+        if ($user->type == 'manager') {
+            return response()->json(BicycleStyle::all(), 200);
+        } else return response()->json([], 403);
+    }
+    public function deleteBick(Request $request)
+    {
+        $user = Auth::user();
+        if ($user->type == 'manager') {
+            $bicycle = Bicycle::where('id', $request->bid)->first();
+            
+            if (!isset($bicycle))
+                return response()->json([
+                    'code' => 300,
+                    'message' => "bicycle not found."
+                ], 200);
+            $bicycle->delete();
+            return response()->json([
+                'code' => 200,
+                'message' => "bicycle deleted successfully."
+            ], 200);
+        } else return response()->json([], 403);
     }
 }

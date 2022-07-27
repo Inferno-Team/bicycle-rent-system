@@ -17,8 +17,8 @@ return new class extends Migration
             $table->id();
             $table->foreignId('user_id')->references('id')->on('users');
             $table->foreignId('bicycle_id')->references('id')->on('bicycles');
-            $table->foreignId('old_stand')->references('id')->on('stands');
-            $table->foreignId('last_stand')->references('id')->on('stands');
+            $table->foreignId('old_stand_id')->references('id')->on('stands');
+            $table->foreignId('last_stand_id')->references('id')->on('stands');
             $table->double('price');
             $table->string('distence');
             $table->string('time');
