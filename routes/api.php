@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::post('/login', [UserController::class, 'login']);
 Route::post('/signup', [UserController::class, 'signUp']);
-Route::middleware('auth:sanctum')->get('/user',function (Request $request){
+Route::middleware('auth:sanctum')->get('/user', function (Request $request) {
     return $request->user();
 });
 Route::group(['middleware' => ['auth:sanctum']], function ($route) {
@@ -31,11 +31,12 @@ Route::group(['middleware' => ['auth:sanctum']], function ($route) {
         '/get_avaliable_bicycle_in_stand/{id}',
         [ManagerController::class, 'getAvaliableBicycleInStand']
     );
-    $route->get('/recent_events',[ManagerController::class,'recentEvents']);
-    $route->get('/get_user_history',[ManagerController::class,'getUserHistory']);
-    $route->get('/get_all_styles',[ManagerController::class, 'getStyles']);
+    $route->get('/recent_events', [ManagerController::class, 'recentEvents']);
+    $route->get('/get_user_history', [ManagerController::class, 'getUserHistory']);
+    $route->get('/get_all_styles', [ManagerController::class, 'getStyles']);
     $route->post('/logout', [UserController::class, 'logout']);
     $route->post('/delete_bick', [ManagerController::class, 'deleteBick']);
+    $route->get('/get_all_banned_users', [ManagerController::class, 'getAllBannedUsers']);
 });
 
 Route::group(['middleware' => ['auth:sanctum']], function ($route) {
@@ -43,10 +44,12 @@ Route::group(['middleware' => ['auth:sanctum']], function ($route) {
     $route->post('/rent_bicycle', [CustomerController::class, 'rentBicycle']);
     $route->post('/update_current_location', [CustomerController::class, 'updateLocation']);
     $route->post('/return_bicycle', [CustomerController::class, 'returnBicycle']);
-    $route->post('/check_user_if_renting',[CustomerController::class,'checkIfRenting']);
-    $route->get('/get_my_history',[CustomerController::class,'getMyHistory']);
-    $route->get('/get_bicycle_by_ip/{ip}',[CustomerController::class,'getBicycleByIP']);
-    $route->post('/get_user',[CustomerController::class,'getUser']);
+    $route->post('/check_user_if_renting', [CustomerController::class, 'checkIfRenting']);
+    $route->get('/get_my_history', [CustomerController::class, 'getMyHistory']);
+    $route->get('/get_bicycle_by_ip/{ip}', [CustomerController::class, 'getBicycleByIP']);
+    $route->post('/get_user', [CustomerController::class, 'getUser']);
+    $route->post('/edit_user', [CustomerController::class, 'editUser']);
+    $route->post('reset_password', [CustomerController::class, 'resetPassword']);
 });
 
 Route::group(['middleware' => ['auth:sanctum']], function ($route) {

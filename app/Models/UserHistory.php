@@ -17,7 +17,7 @@ class UserHistory extends Model
         'distence',
         'time',
     ];
-    
+
     function format(){
         return [
             'id' =>$this->id,

@@ -9,6 +9,8 @@ use App\Models\UserHistory;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Http;
 
 class CustomerController extends Controller
@@ -25,11 +27,11 @@ class CustomerController extends Controller
                     $oldUserBicycle = CurrentUser::where('user_id', $user->id)->first();
                     if (!isset($oldUserBicycle)) {
                         try {
-                            $response = Http::timeout(1)->post($bicycle->esp32->ip . "/unlock/");
+                            $response = Http::timeout(3)->post($bicycle->esp32->ip . "/unlock/");
                             info($response->body());
                         } catch (\Illuminate\Http\Client\ConnectionException $e) {
                             return response()->json([
-                                'code' => 200,
+                                'code' => 300,
                                 'message' => "bicycle is offline now please try again later.",
                                 'bicycle' => $bicycle
                             ], 200);
@@ -106,7 +108,17 @@ class CustomerController extends Controller
                 $dictancePrice = ($request->step_count / 1000) * $bicycle->price_per_distance; // m => km
 
                 $price = $timePrice + $dictancePrice;
-
+                try {
+                    $response = Http::timeout(3)->post($bicycle->esp32->ip . "/lock/");
+                    info($response->body());
+                } catch (\Illuminate\Http\Client\ConnectionException $e) {
+                    info($e->getMessage());
+                    return response()->json([
+                        'code' => 300,
+                        'message' => "bicycle is offline now please try again later.",
+                        'bicycle' => $bicycle
+                    ], 200);
+                }
                 $history = UserHistory::create([
                     'user_id' => $user->id,
                     'bicycle_id' => $bicycle->id,
@@ -122,6 +134,14 @@ class CustomerController extends Controller
                         'message' => "something wrong happend please try again later.",
                     ], 200);
                 }
+                // $history=$history->formatForFlutter();
+                $history = UserHistory::where('id', $history->id)->with(
+                    'bicycle',
+                    'user',
+                    'old_stand',
+                    
+                )->first();
+                info($history);
                 $cu->delete();
                 $bicycle->is_available = true;
                 $bicycle->stand_id = $request->last_stand;
@@ -129,7 +149,7 @@ class CustomerController extends Controller
                 return response()->json([
                     'code' => 200,
                     'message' => "bicycle returned successfully",
-                    'data' => UserHistory::where('id', $history->id)->get()->map->format()
+                    'data' => $history
                 ], 200);
             }
         } else {
@@ -155,6 +175,7 @@ class CustomerController extends Controller
             $cu->lat = $request->lat;
             $cu->long = $request->long;
             $cu->save();
+            info("$cu");
             return response()->json([
                 'code' => 200,
                 'message' => "current location data updated.",
@@ -218,5 +239,22 @@ class CustomerController extends Controller
     public function getUser()
     {
         return response()->json(Auth::user(), 200);
+    }
+    public function editUser(Request $request){
+        $user = Auth::user();
+        $user = User::where('id', $user->id)->first();
+        $user->first_name = $request->first_name;
+        $user->email = $request->email;
+        $user->last_name = $request->last_name;
+        $user->save();
+        return response()->json($user, 200);
+    }
+
+    public function resetPassword(Request $request){
+        $user = Auth::user();
+        $user = User::where('id', $user->id)->first();
+        $user->password = Hash::make($request->password);
+        $user->save();
+        return response()->json($user, 200);
     }
 }

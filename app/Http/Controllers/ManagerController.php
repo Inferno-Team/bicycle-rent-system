@@ -301,4 +301,11 @@ class ManagerController extends Controller
             ], 200);
         } else return response()->json([], 403);
     }
+    public function getAllBannedUsers(){
+        $user = Auth::user();
+        if ($user->type == 'manager') {
+            $users = UserBan::with('user')->get()->map->format();
+            return response()->json($users, 200);
+        } else return response()->json([], 403);
+    }
 }
